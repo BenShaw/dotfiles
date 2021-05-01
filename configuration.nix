@@ -41,8 +41,19 @@
     firewall.enable = false;
   };
 
+
   programs.nm-applet.enable = true;
 
+  services.printing = {
+    enable = true;
+    drivers = with pkgs; [
+      gutenprintBin
+      gutenprint
+      canon-cups-ufr2
+      cupsBjnp
+   ];
+  };
+                              
 
   #bluetooth
   hardware.bluetooth.enable = true;
@@ -50,7 +61,11 @@
 
 
   virtualisation = {
-    virtualbox.host.enable = true;
+    virtualbox.host = {
+        enable = true ;
+        addNetworkInterface = true;
+    };
+
     docker.enable = true;
   };
 
@@ -100,7 +115,19 @@
         dmenu #application launcher most people use
         i3status # gives you the default i3 status bar
         i3lock #default i3 screen locker
-        i3blocks #if you are planning on using i3blocks over i3status
+        i3blocks 
+        lm_sensors #hardware sensors used by I3 blocks
+        clipit #clipboard history
+        nitrogen #backgroun manager
+        pcmanfm #file browser
+        blueman
+        pulseaudio
+        albert
+        picom
+        volumeicon
+        playerctl
+        rofi #app launcher possible replacement for dmenu ?
+
      ];
     };
   };
@@ -108,9 +135,7 @@
   # Configure keymap in X11
   services.xserver.layout = "us";
   services.xserver.xkbOptions = "caps:swapescape";
-
-  # Enable CUPS to print documents.
-  services.printing.enable = true;
+  services.dbus.enable = true;
 
   # Enable sound.
   sound.enable = true;
@@ -131,7 +156,7 @@
   # Define a user account. Don't forget to set a password with ‘passwd’.
    users.users.ben = {
      isNormalUser = true;
-     extraGroups = [ "sharedusers" "wheel" "networkmanager" ]; # Enable ‘sudo’ for the user.
+     extraGroups = [ "sharedusers" "wheel" "networkmanager" "openvpn" ]; # Enable ‘sudo’ for the user.
    };
 
   # List packages installed in system profile. To search, run:
@@ -143,15 +168,8 @@
      neovim
      firefox
      git
-     clipit #clipboard history
-     nitrogen #backgroun manager
-     pcmanfm #file browser
      jetbrains.idea-community
-     blueman
-     pulseaudio
-     albert
-     picom
-     zsh #/todo
+         zsh #/todo
      oh-my-zsh #/todo
      rustup
      gparted
@@ -161,9 +179,8 @@
      slack
      curl
      unzip
-     networkmanager_openvpn
-     volumeicon
      pkg-config
+     mdadm #raid
    ];
 
   # Some programs need SUID wrappers, can be configured further or are
@@ -178,6 +195,9 @@
 
   # Enable the OpenSSH daemon.
   services.openssh.enable = true;
+
+  services.gnome3.gnome-keyring.enable = true;
+  programs.ssh.startAgent = true;
 
   # flatpak
   # services.flatpak.enable = true;
