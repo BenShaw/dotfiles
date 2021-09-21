@@ -3,14 +3,38 @@
 # and in the NixOS manual (accessible by running ‘nixos-help’).
 
 { config, pkgs, ... }:
-
-{
+let
+    unstableTarball =
+              fetchTarball
+                            https://github.com/NixOS/nixpkgs/archive/nixos-unstable.tar.gz;
+in {
   environment.pathsToLink = ["/libexec"]; 
   nixpkgs.config.allowUnfree = true;
+
+  # Automate cleanup
+  nix.autoOptimiseStore = true;
+  nix.gc = {
+  	automatic = true;
+  	dates = "weekly";
+  	options = "--delete-older-than 30d";
+  };
+  nix.extraOptions = ''
+  	min-free = ${toString (100 * 1024 * 1024)}
+  	max-free = ${toString (1024 * 1024 * 1024)}
+  '';
+
+  nixpkgs.config = {
+    packageOverrides = pkgs: {
+      unstable = import unstableTarball {
+        config = config.nixpkgs.config;
+      };
+    };
+  };
 
   imports =
     [ # Include the results of the hardware scan.
       ./hardware-configuration.nix
+      ./nextcloud.nix
     ];
 
 
@@ -18,6 +42,7 @@
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;
   boot.loader.grub.useOSProber = true;
+  boot.supportedFilesystems = [ "ntfs" ];
 
   networking = {
     
@@ -39,19 +64,26 @@
     #        allowedUDPPorts = [ 1194 1205 ];
     #      };
     firewall.enable = false;
+    firewall.allowPing = true;
   };
 
 
   programs.nm-applet.enable = true;
 
-  services.printing = {
-    enable = true;
-    drivers = with pkgs; [
-      gutenprintBin
-      gutenprint
-      canon-cups-ufr2
-      cupsBjnp
-   ];
+  #services.printing = {
+  #  enable = true;
+  #  drivers = with pkgs; [
+  #    gutenprintBin
+  #    gutenprint
+  #    canon-cups-ufr2
+  #    cupsBjnp
+  # ];
+  #};
+
+  #next cloud
+  security.acme = {
+    acceptTerms = true;
+    email = "shawty.13@gmail.com";
   };
                               
 
@@ -60,20 +92,8 @@
   services.blueman.enable = true;
 
 
-  virtualisation = {
-    virtualbox.host = {
-        enable = true ;
-        addNetworkInterface = true;
-    };
-
-    docker.enable = true;
-  };
-
-  users.extraGroups.vboxusers.members = [ "ben" ];
- 
-  #fileSystems."/ssd".options = ["uid=1000" "gid=100" "dmask=007" "fmask=117"];
-
-  # Set your time zone.
+  virtualisation.docker.enable = true;
+  
   time.timeZone = "America/Edmonton";
 
      # Configure network proxy if necessary
@@ -153,10 +173,13 @@
   # Enable touchpad support (enabled default in most desktopManager).
   # services.xserver.libinput.enable = true;
 
+  programs.zsh.enable = true;
+
   # Define a user account. Don't forget to set a password with ‘passwd’.
    users.users.ben = {
+     shell = pkgs.zsh;
      isNormalUser = true;
-     extraGroups = [ "sharedusers" "wheel" "networkmanager" "openvpn" ]; # Enable ‘sudo’ for the user.
+     extraGroups = [ "docker" "sharedusers" "wheel" "networkmanager" "openvpn" ]; # Enable ‘sudo’ for the user.
    };
 
   # List packages installed in system profile. To search, run:
@@ -165,22 +188,16 @@
   environment.systemPackages = with pkgs; [
      wget
      vimHugeX
-     neovim
-     firefox
-     git
-     jetbrains.idea-community
-         zsh #/todo
-     oh-my-zsh #/todo
-     rustup
      gparted
-     awscli2
-     docker
-     python
-     slack
      curl
      unzip
      pkg-config
-     mdadm #raid
+     mdadm 
+     hfsprogs #attempt to get hfs access working
+     mosh
+     samba
+     #exfatprogs
+     cifs-utils #to make smb mounting easier on the command line
    ];
 
   # Some programs need SUID wrappers, can be configured further or are
@@ -199,6 +216,78 @@
   services.gnome3.gnome-keyring.enable = true;
   programs.ssh.startAgent = true;
 
+
+  # File Sharing
+  services.nfs.server = {
+ 	enable = true;
+  	#exports = ''/mnt/storage/share 192.168.0.56 (sync,wdelay,hide,no_subtree_check,sec=sys,rw,secure,root_squash,no_all_squash)'';
+  	exports = ''/mnt/storage/share 192.168.0.56 (sync,wdelay,hide,no_subtree_check,sec=sys,rw,secure,root_squash,no_root_squash)'';
+	#lockdPort = 4001;
+    	#mountdPort = 4002;
+    	#statdPort = 4000;
+  };
+  services.samba = {
+    enable = true;
+    
+    syncPasswordsByPam = true;
+    # You will still need to set up the user accounts to begin with:
+    # $ sudo smbpasswd -a yourusername
+
+    # This adds to the [global] section:
+    extraConfig = ''
+      browseable = yes
+      smb encrypt = required
+      workgroup = WORKGROUP
+      server string = smbnix
+      netbios name = smbnix
+    '';
+
+    shares = {
+      homes = {
+        browseable = "no";  # note: each home will be browseable; the "homes" share will not.
+        "read only" = "yes";
+        "guest ok" = "no";
+      };
+      share = {
+        path = "/mnt/storage/share";
+	browseable = "yes";
+        "read only" = "no";
+        "guest ok" = "no";
+      };
+    };
+  };
+
+  # mDNS
+  #
+  # This part may be optional for your needs, but I find it makes browsing in Dolphin easier,
+  # and it makes connecting from a local Mac possible.
+  services.avahi = {
+    enable = true;
+    nssmdns = true;
+    publish = {
+      enable = true;
+      addresses = true;
+      domain = true;
+      hinfo = true;
+      userServices = true;
+      workstation = true;
+    };
+    extraServiceFiles = {
+      smb = ''
+        <?xml version="1.0" standalone='no'?><!--*-nxml-*-->
+        <!DOCTYPE service-group SYSTEM "avahi-service.dtd">
+        <service-group>
+          <name replace-wildcards="yes">%h</name>
+          <service>
+            <type>_smb._tcp</type>
+            <port>445</port>
+          </service>
+        </service-group>
+      '';
+    };
+  };
+  
+
   # flatpak
   # services.flatpak.enable = true;
   # xdg.portal.enable = true;
@@ -216,6 +305,7 @@
   # Before changing this value read the documentation for this option
   # (e.g. man configuration.nix or on https://nixos.org/nixos/options.html).
   system.stateVersion = "20.09"; # Did you read the comment?
+
 
   #services.openvpn.servers = {
   #  scribd  = { 
