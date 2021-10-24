@@ -37,6 +37,7 @@ in {
       ./nextcloud.nix
     ];
 
+  programs.java = { enable = true; package = pkgs.jdk11; };
 
   # Use the systemd-boot EFI boot loader.
   boot.loader.systemd-boot.enable = true;
@@ -218,14 +219,14 @@ in {
 
 
   # File Sharing
-  services.nfs.server = {
- 	enable = true;
+  #services.nfs.server = {
+ #	enable = true;
   	#exports = ''/mnt/storage/share 192.168.0.56 (sync,wdelay,hide,no_subtree_check,sec=sys,rw,secure,root_squash,no_all_squash)'';
-  	exports = ''/mnt/storage/share 192.168.0.56 (sync,wdelay,hide,no_subtree_check,sec=sys,rw,secure,root_squash,no_root_squash)'';
-	#lockdPort = 4001;
-    	#mountdPort = 4002;
-    	#statdPort = 4000;
-  };
+  #	exports = ''/mnt/storage/share/mac 192.168.0.56 (no_root_squash,insecure,rw)'';
+        #lockdPort = 4001;
+        #mountdPort = 4002;
+        #statdPort = 4000;
+  #};
   services.samba = {
     enable = true;
     

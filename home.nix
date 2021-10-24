@@ -2,14 +2,21 @@
 
 with pkgs;
 let
-  my-python2-packages = python27-packages: with python27-packages; [
+  #my-python2-packages = python27-packages: with python27-packages; [
+  #  pip
+  #  setuptools
+  #  virtualenv
+  #]; 
+  #python2-with-my-packages = python2.withPackages my-python2-packages;
+
+  my-python3-packages = python-packages: with python-packages; [
     pip
     setuptools
-    virtualenv
-    #requests
-    # other python packages you want
+    pylint
+    pyspark
   ]; 
-  python2-with-my-packages = python2.withPackages my-python2-packages;
+  python3-with-my-packages = python37.withPackages my-python3-packages;
+
 in
 
 {
@@ -17,6 +24,8 @@ in
   
   # Let Home Manager install and manage itself.
   programs.home-manager.enable = true;
+
+  nixpkgs.config.allowUnfree = true;
 
   # Home Manager needs a bit of information about you and the
   # paths it should manage.
@@ -38,10 +47,16 @@ in
   # changes in each release.
   home.stateVersion = "21.03";
   home.packages = with pkgs; [
-    python2-with-my-packages
+    #python2-with-my-packages
+    #unstable.ventoy-bin
+    inxi
+    usbutils
+    iftop
+    python3-with-my-packages
     docker-compose
     nextcloud-client
     transmission-gtk
+    unrar
     texmaker
     libstdcxx5
     ruby.devEnv
@@ -58,6 +73,7 @@ in
     ctags
     htop
     fortune
+    vscode
     #neovim
     firefox
     git
@@ -67,8 +83,9 @@ in
     docker
     slack
     alacritty
-    okular
     p7zip
+    nomacs
+    gthumb
     #pkg-config-wrapper
     #python37
     #pkgs.python3.7
@@ -93,6 +110,8 @@ in
       userName  = "Ben Shaw";
       userEmail = "shawty.13@gmail.com";
     };
+  
+    # \todo programs.steam.enable = true;
 
   programs.vim = {
     enable = true;
